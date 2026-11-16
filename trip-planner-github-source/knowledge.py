@@ -1,6 +1,7 @@
 """Local text extraction, Ollama embeddings, and small-file semantic search."""
 
 import json
+import hashlib
 import math
 import os
 import re
@@ -23,6 +24,7 @@ EMBED_MODEL = "nomic-embed-text"
 OLLAMA_BASE = "http://127.0.0.1:11434"
 MAX_TEXT_CHARS = 350_000
 MAX_CHUNKS = 350
+CONTEXT_MANIFEST = BASE_DIR / "data" / "trip_context.json"
 
 
 class DocumentError(Exception):
@@ -84,6 +86,10 @@ def extract_segments(content, suffix):
             text = content.decode("utf-8-sig", errors="replace")
         if len(text) > MAX_TEXT_CHARS:
             raise DocumentError("This document has too much text to index in the local demo.")
+        if suffix == ".md":
+            # Keep each reference card's facts, caveats and source URLs together.
+            return [{"text": part, "page": None}
+                    for part in re.split(r"(?m)(?=^## )", text) if part.strip()]
         return [{"text": text, "page": None}]
     except DocumentError:
         raise
@@ -95,9 +101,10 @@ def chunk_segments(segments):
     chunks = []
     for segment in segments:
         text = re.sub(r"\s+", " ", segment["text"]).strip()
+        chunk_size = 2400 if segment["text"].startswith("## ") else 1000
         start = 0
         while start < len(text):
-            end = min(start + 1000, len(text))
+            end = min(start + chunk_size, len(text))
             if end < len(text):
                 space = text.rfind(" ", start + 650, end)
                 if space > start:
@@ -150,6 +157,8 @@ def read_index(name):
         data = json.loads(path.read_text(encoding="utf-8"))
         if data.get("name") != name or data.get("size") != source.stat().st_size or data.get("model") != EMBED_MODEL:
             return None
+        if data.get("sha256") and data["sha256"] != hashlib.sha256(source.read_bytes()).hexdigest():
+            return None
         if not isinstance(data.get("chunks"), list):
             return None
         return data
@@ -162,7 +171,8 @@ def index_document(name, content):
     vectors = embed_texts([chunk["text"] for chunk in chunks])
     for chunk, vector in zip(chunks, vectors):
         chunk["vector"] = vector
-    data = {"name": name, "size": len(content), "model": EMBED_MODEL, "chunks": chunks}
+    data = {"name": name, "size": len(content), "sha256": hashlib.sha256(content).hexdigest(),
+            "model": EMBED_MODEL, "chunks": chunks}
     destination = index_path(name)
     temporary = INDEX_DIR / f".{uuid.uuid4().hex}.tmp"
     try:
@@ -173,10 +183,61 @@ def index_document(name, content):
     return len(chunks)
 
 
-def search_documents(query, limit=4):
+def trip_collection_context(max_chars=68000):
+    """Supply the active brief and a balanced reference collection, not four arbitrary chunks.
+
+    The local manifest selects files; it is never populated from document instructions.
+    Deleted/unindexed files are not used. Oversized collections are selected round-robin
+    by complete segment so one category cannot crowd out every other category.
+    """
+    try:
+        manifest = json.loads(CONTEXT_MANIFEST.read_text(encoding="utf-8"))
+        profiles, references = manifest.get("profiles", []), manifest.get("references", [])
+        if not isinstance(profiles, list) or not isinstance(references, list):
+            return {"matches": [], "excluded": [], "truncated": False, "checked_on": None}
+    except (OSError, ValueError, AttributeError):
+        return {"matches": [], "excluded": [], "truncated": False, "checked_on": None}
+    matches, queues, used, seen = [], [], 0, set()
+    for name in profiles + references:
+        if (not isinstance(name, str) or Path(name).name != name or name in seen
+                or not read_index(name)):
+            continue
+        seen.add(name)
+        source = UPLOAD_DIR / name
+        try:
+            segments = extract_segments(source.read_bytes(), source.suffix.lower())
+        except (OSError, DocumentError):
+            continue
+        text = "\n\n".join(segment["text"] for segment in segments)
+        if name in profiles:
+            if used + len(text) <= max_chars:
+                matches.append({"name": name, "page": None, "text": text, "score": 1.0})
+                used += len(text)
+            else:
+                queues.append((name, segments))
+        else:
+            queues.append((name, segments))
+    truncated = False
+    while any(segments for _, segments in queues):
+        for name, segments in queues:
+            if not segments:
+                continue
+            segment = segments.pop(0)
+            text = segment["text"]
+            if used + len(text) <= max_chars:
+                matches.append({"name": name, "page": segment["page"], "text": text, "score": 1.0})
+                used += len(text)
+            else:
+                truncated = True
+    excluded = manifest.get("excluded_from_trip_context", [])
+    return {"matches": matches, "excluded": excluded if isinstance(excluded, list) else [],
+            "truncated": truncated, "checked_on": manifest.get("checked_on")}
+
+
+def search_documents(query, limit=8, exclude_names=()):
     all_chunks = []
     for source in UPLOAD_DIR.iterdir():
-        if not source.is_file():
+        if not source.is_file() or source.name in exclude_names:
             continue
         index = read_index(source.name)
         if index:
