@@ -42,14 +42,36 @@ h1 { margin-top: 10px; font-size: clamp(27px, 3.5vw, 34px); line-height: 1.14; l
 .text-button:hover { text-decoration: underline; }
 .conversation { display: flex; flex: 1; flex-direction: column; gap: 15px; min-height: 320px; max-height: 58vh; overflow-y: auto; padding: 23px 10px; }
 .empty-state { margin: auto; color: #949c93; font-size: 15px; text-align: center; }
-.message { display: flex; flex-direction: column; max-width: min(78%, 630px); }
+.message { display: flex; flex-direction: column; min-width: 0; max-width: min(78%, 630px); }
 .message.user { align-self: flex-end; }
 .message.assistant, .message.error { align-self: flex-start; }
 .message-label { display: none; }
 .source-label { padding: 5px 3px 0; color: var(--green-dark); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
 .bubble { border-radius: 16px; background: var(--bubble); padding: 12px 16px; color: var(--ink); font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
 .message.user .bubble { border-bottom-right-radius: 4px; background: var(--green); color: #fff; }
-.message.assistant .bubble { border-bottom-left-radius: 4px; }
+.message.assistant { width: 100%; max-width: 100%; }
+.message.assistant .bubble { min-width: 0; border-bottom-left-radius: 4px; white-space: normal; }
+.message.assistant .bubble > :first-child { margin-top: 0; }
+.message.assistant .bubble > :last-child { margin-bottom: 0; }
+.bubble p { margin: 0 0 .8em; }
+.bubble :is(h1, h2, h3, h4, h5, h6) { margin: 1.2em 0 .5em; line-height: 1.3; letter-spacing: normal; }
+.bubble :is(h1, h2) { font-size: 1.2em; }
+.bubble :is(h3, h4, h5, h6) { font-size: 1.05em; }
+.bubble :is(ul, ol) { margin: .5em 0 1em; padding-left: 1.5em; }
+.bubble li { margin: .35em 0; }
+.bubble li > p { margin: .35em 0; }
+.bubble li > :is(ul, ol) { margin: .3em 0; }
+.bubble hr { border: 0; border-top: 1px solid #d5dfd2; margin: 1.3em 0; }
+.bubble blockquote { margin: .8em 0; padding: .2em 0 .2em 1em; border-left: 3px solid #a2b79e; color: #526450; }
+.bubble blockquote > :last-child { margin-bottom: 0; }
+.bubble code { padding: .12em .3em; border-radius: 4px; background: #e5ebe2; font-size: .9em; }
+.bubble pre { max-width: 100%; overflow-x: auto; padding: 12px; border-radius: 8px; background: #e5ebe2; white-space: pre; }
+.bubble pre code { padding: 0; }
+.reply-table { max-width: 100%; overflow-x: auto; margin: .8em 0 1em; border: 1px solid #d5dfd2; border-radius: 8px; }
+.reply-table table { width: 100%; min-width: 400px; border-collapse: collapse; font-size: .92em; }
+.reply-table :is(th, td) { min-width: 100px; padding: 9px 11px; border-bottom: 1px solid #d5dfd2; text-align: left; vertical-align: top; }
+.reply-table th { background: #e5ede1; font-weight: 700; }
+.reply-table tbody tr:last-child td { border-bottom: 0; }
 .message.error .bubble { background: #fff0ed; color: var(--error); }
 .bubble a { color: #3c6845; text-decoration: underline; text-underline-offset: 2px; }
 .bubble a:hover { color: #234d2b; }
@@ -60,6 +82,13 @@ h1 { margin-top: 10px; font-size: clamp(27px, 3.5vw, 34px); line-height: 1.14; l
 .primary-button { border: 0; border-radius: 10px; background: var(--green); color: #fff; padding: 12px 19px; font-size: 15px; font-weight: 700; white-space: nowrap; }
 .primary-button:hover { background: var(--green-dark); }
 .hint { margin-top: 13px; color: #969e95; font-size: 12px; text-align: center; }
+#reference-ready { margin: 4px 0 12px; padding: 12px 15px; border-radius: 10px; background: #f0f6ed; color: #3c6845; text-align: left; line-height: 1.5; }
+.trip-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.trip-prompt { border: 1px solid #cbdcc7; border-radius: 20px; background: #fff; color: #3c6845; padding: 8px 12px; font: inherit; font-size: 12px; }
+.trip-prompt:hover { background: #f0f6ed; }
+.trip-prompt[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: #fff; }
+.prompt-hint { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.source-label a { color: #3c6845; overflow-wrap: anywhere; }
 .web-option { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 9px; margin-top: 12px; color: var(--green-dark); font-size: 12px; }
 .web-option label { cursor: pointer; font-weight: 700; }
 .web-option input { vertical-align: -2px; accent-color: var(--green); }
