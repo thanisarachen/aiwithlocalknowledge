@@ -111,16 +111,31 @@ function addMessage(role, content, sources = [], webSources = []) {
   item.className = `message ${role}`;
   const label = document.createElement("div");
   label.className = "message-label";
-  label.textContent = role === "user" ? "YOU" : role === "error" ? "ERROR" : "GEMMA";
+  label.textContent = role === "user" ? "YOU" : role === "error" ? "ERROR" : "TRIP PLANNER";
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  if (role === "assistant") linkify(bubble, content);
+  // Raw replies stay in history; format both restored and newly received answers.
+  if (role === "assistant") bubble.innerHTML = replyFormatter.render(content);
   else bubble.textContent = content;
   item.append(label, bubble);
+  if (role === "assistant") {
+    const draft = document.createElement("div");
+    draft.className = "source-label";
+    draft.textContent = "Review dates, routes and totals against the references before booking.";
+    item.append(draft);
+  }
   if (role === "assistant" && Array.isArray(sources) && sources.length) {
     const note = document.createElement("div");
     note.className = "source-label";
-    note.textContent = `Relevant documents: ${sources.join(", ")}`;
+    note.append(document.createTextNode("Reference documents: "));
+    sources.forEach((name, index) => {
+      if (index) note.append(document.createTextNode(" · "));
+      const link = document.createElement("a");
+      link.href = `/api/preview/${encodeURIComponent(name)}`;
+      link.textContent = name;
+      link.addEventListener("click", event => { event.preventDefault(); openFile(name); });
+      note.append(link);
+    });
     item.append(note);
   }
   if (role === "assistant" && Array.isArray(webSources) && webSources.length) {
@@ -310,11 +325,27 @@ document.getElementById("upload-form").addEventListener("submit", async event =>
 
 renderHistory();
 
+document.querySelectorAll(".trip-prompt").forEach(button => button.addEventListener("click", () => {
+  messageInput.value = tripPrompts[button.dataset.promptKey];
+  messageInput.dispatchEvent(new Event("input"));
+  messageInput.focus();
+  messageInput.setSelectionRange(0, 0);
+  messageInput.scrollTop = 0;
+  document.querySelectorAll(".trip-prompt").forEach(prompt => {
+    prompt.setAttribute("aria-pressed", String(prompt === button));
+  });
+}));
+
 fetch("/api/config").then(response => response.json()).then(config => {
   document.getElementById("web-option").hidden = !config.web_search_available;
+  const ready = Array.isArray(config.trip_files) && config.trip_files.length > 0;
+  document.getElementById("reference-ready").hidden = !ready;
+  document.getElementById("trip-prompts").hidden = !ready;
+  if (ready) document.getElementById("reference-ready").textContent =
+    `Your trip details and Tokyo references are ready · Checked ${config.reference_date}. Prices and availability still need confirmation.`;
 }).catch(() => { /* Keep optional web search hidden if configuration is unavailable. */ });
 webToggle.addEventListener("change", () => {
   document.getElementById("mode-hint").textContent = webToggle.checked
-    ? "Using qwen3:1.7b · Web search is on"
-    : "Using gemma3:1b · Runs on this computer";
+    ? "Using your documents and web search"
+    : "Using saved trip information · Web search is off";
 });
