@@ -4,8 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Local AI · Trip Planning Assistant</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='saved-prompts-1') }}">
+  <script src="{{ url_for('static', filename='vendor/markdown-it-15.0.3.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='message-format.js', v='1') }}" defer></script>
+  <script src="{{ url_for('static', filename='trip-prompts.js', v='1') }}" defer></script>
+  <script src="{{ url_for('static', filename='app.js', v='saved-prompts-1') }}" defer></script>
 </head>
 <body>
   <main class="app-shell">
@@ -21,6 +24,13 @@
     </nav>
 
     <section id="chat-panel" class="panel chat-panel" aria-label="Chat">
+      <p id="reference-ready" class="hint" hidden></p>
+      <div id="trip-prompts" class="trip-prompts" hidden>
+        <button type="button" class="trip-prompt" data-prompt-key="plan" aria-pressed="false">Plan my Japan trip</button>
+        <button type="button" class="trip-prompt" data-prompt-key="hotels" aria-pressed="false">Compare hotels</button>
+        <button type="button" class="trip-prompt" data-prompt-key="budget" aria-pressed="false">Review my budget</button>
+        <p class="prompt-hint">Choose a prompt, then press Enter to send. Shift+Enter adds a new line.</p>
+      </div>
       <button id="clear-chat" class="text-button" type="button" hidden>Clear chat</button>
       <div id="conversation" class="conversation" aria-live="polite"></div>
       <form id="chat-form" class="composer">
@@ -32,7 +42,7 @@
         <label><input id="web-search-toggle" type="checkbox"> Use web search for current information</label>
         <span>When selected, your question is sent to Ollama's web search API.</span>
       </div>
-      <p id="mode-hint" class="hint">Using {{ model }} · Runs on this computer</p>
+      <p id="mode-hint" class="hint">Using saved trip information · Web search is off</p>
     </section>
 
     <section id="documents-panel" class="panel documents-panel" aria-label="Document collection" hidden>
